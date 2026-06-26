@@ -167,7 +167,7 @@ function ReviewSession({
     return (
       <>
         <div className="navbar">
-          <button className="navbar-icon-btn" onClick={onDone} title="Chiudi">
+          <button className="navbar-icon-btn" onClick={onDone} title="Close">
             <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
               <polyline points="15 18 9 12 15 6" />
             </svg>
@@ -176,7 +176,7 @@ function ReviewSession({
         </div>
         <div className="empty-state">
           <h3>Ripasso completato</h3>
-          <p>{done > 0 ? `Hai ripassato ${done} parole.` : 'Nessuna parola da ripassare.'}</p>
+          <p>{done > 0 ? `You reviewed ${done} words.` : 'No words to review.'}</p>
           <button className="btn btn-primary" style={{ marginTop: 10 }} onClick={onDone}>
             Torna al prontuario
           </button>
@@ -188,7 +188,7 @@ function ReviewSession({
   return (
     <>
       <div className="navbar">
-        <button className="navbar-icon-btn" onClick={onDone} title="Chiudi">
+        <button className="navbar-icon-btn" onClick={onDone} title="Close">
           <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
             <polyline points="15 18 9 12 15 6" />
           </svg>
@@ -244,7 +244,7 @@ function ReviewSession({
             style={{ padding: '12px 28px', fontSize: 15 }}
             onClick={() => setRevealed(true)}
           >
-            Mostra risposta
+            Show answer
           </button>
         )}
       </div>

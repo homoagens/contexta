@@ -33,7 +33,7 @@ export default function Settings({ settings, onChange, onLogout }: Props) {
   return (
     <>
       <div className="navbar">
-        <span className="navbar-title">Impostazioni</span>
+        <span className="navbar-title">Settings</span>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           {onLogout && (
             <button
@@ -48,7 +48,7 @@ export default function Settings({ settings, onChange, onLogout }: Props) {
             style={{ padding: '7px 16px', fontSize: 13 }}
             onClick={handleSave}
           >
-            {saved ? '✓ Salvato' : 'Salva'}
+            {saved ? '✓ Saved' : 'Save'}
           </button>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function Settings({ settings, onChange, onLogout }: Props) {
 
         {local.sourceLang === local.targetLang && (
           <div style={{ fontSize: 12, color: 'var(--accent)', lineHeight: 1.4, marginTop: -4, marginBottom: 8 }}>
-            ✦ Modalità sinonimi — suggerisce significato e sinonimi contestuali nella stessa lingua.
+            ✦ Synonym mode — suggests meaning and contextual synonyms in the same language.
           </div>
         )}
 
@@ -123,7 +123,7 @@ export default function Settings({ settings, onChange, onLogout }: Props) {
 
         {/* Reader engine */}
         <div className="form-group" style={{ marginTop: 8 }}>
-          <label className="form-label">Motore lettura</label>
+          <label className="form-label">Reading engine</label>
           <div style={{ display: 'flex', gap: 8 }}>
             {(['classic', 'foliate'] as const).map(eng => {
               const active = (local.readerEngine ?? 'classic') === eng
@@ -146,7 +146,7 @@ export default function Settings({ settings, onChange, onLogout }: Props) {
             })}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-            Classico = epub.js (stabile). Foliate = nuovo motore, progresso più preciso.
+            Classic = epub.js (stable). Foliate = new engine, more accurate progress.
           </div>
         </div>
 
@@ -156,10 +156,10 @@ export default function Settings({ settings, onChange, onLogout }: Props) {
       <div className="settings-section">
         <div className="settings-section-title">Info</div>
         <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-          <p><strong>Contexta Web</strong> — Lettore EPUB con traduzione AI multilingua e sinonimi contestuali.</p>
+          <p><strong>Contexta Web</strong> — EPUB reader with multilingual AI translation and contextual synonyms.</p>
           <p style={{ marginTop: 6 }}>
-            Libri e parole salvate sono conservati localmente nel browser (IndexedDB).
-            I dati vengono inviati al server solo durante la traduzione.
+            Saved books and words are stored locally in the browser (IndexedDB).
+            Data is sent to the server only during translation.
           </p>
           <p style={{ marginTop: 6, fontSize: 12 }}>
             Tema, font, dimensione testo, lingue e modello si cambiano anche direttamente nel lettore (icona <strong>Aa</strong>).

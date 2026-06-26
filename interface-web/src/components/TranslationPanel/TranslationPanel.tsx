@@ -170,7 +170,7 @@ function TranslationContent({
           Sono un umile assistente, non un traduttore!
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7 }}>
-          Posso aiutarti con <strong>una parola</strong> o al massimo una <strong>locuzione di 4 parole</strong>
+          I can help with <strong>one word</strong> or at most a <strong>4-word phrase</strong>
           {' '}(es. <em>«black market»</em>, <em>«put up with»</em>).<br />
           Per frasi e paragrafi interi ti consiglio Google Translate. 😊
         </div>

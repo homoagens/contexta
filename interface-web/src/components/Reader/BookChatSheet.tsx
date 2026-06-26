@@ -58,8 +58,8 @@ export default function BookChatSheet({ bookId, progress, targetLang, onClose }:
       setMessages(m => [...m, { role: 'assistant', text: answer }])
     } catch (err) {
       const msg = err instanceof Error && err.message === 'kb_not_ready'
-        ? 'Il libro è ancora in analisi. Riprova tra poco.'
-        : 'Errore nella risposta. Riprova.'
+        ? 'The book is still being analyzed. Try again shortly.'
+        : 'Error in the response. Try again.'
       setMessages(m => [...m, { role: 'assistant', text: msg }])
     } finally {
       setSending(false)
@@ -71,7 +71,7 @@ export default function BookChatSheet({ bookId, progress, targetLang, onClose }:
       <div className="sheet" onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
         <div className="sheet-handle" />
         <div className="sheet-header">
-          <span className="sheet-title">{persona ? 'Parla col libro' : 'Chiedi al libro'}</span>
+          <span className="sheet-title">{persona ? 'Talk with the book' : 'Ask the book'}</span>
           <button className="navbar-icon-btn" onClick={onClose}>
             <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -90,7 +90,7 @@ export default function BookChatSheet({ bookId, progress, targetLang, onClose }:
               background: persona ? 'transparent' : 'var(--accent)',
               color: persona ? 'var(--text-muted)' : '#fff',
             }}
-          >Compagno di lettura</button>
+          >Reading companion</button>
           <button
             onClick={() => setPersona(true)}
             style={{
@@ -100,29 +100,29 @@ export default function BookChatSheet({ bookId, progress, targetLang, onClose }:
               background: persona ? 'var(--accent)' : 'transparent',
               color: persona ? '#fff' : 'var(--text-muted)',
             }}
-          >Parla come il libro</button>
+          >Talk like the book</button>
         </div>
 
         {/* Body */}
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 16px', minHeight: 120 }}>
           {kbError && (
             <div className="empty-state" style={{ padding: 20 }}>
-              <p>Impossibile caricare l'analisi del libro.</p>
-              <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={loadKb}>Riprova</button>
+              <p>Unable to load the book analysis.</p>
+              <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={loadKb}>Try again</button>
             </div>
           )}
           {!kbError && !ready && (
             <div className="empty-state" style={{ padding: 20 }}>
               <div className="spinner" style={{ margin: '0 auto 12px' }} />
-              <p>Sto leggendo il libro per poterne parlare con te…</p>
+              <p>Reading the book so I can talk about it with you…</p>
               <button className="btn" style={{ marginTop: 8 }} onClick={loadKb}>Aggiorna</button>
             </div>
           )}
           {ready && messages.length === 0 && (
             <div className="empty-state" style={{ padding: 20 }}>
               <p>{persona
-                ? 'Fai una domanda — ti risponderò con la voce del libro.'
-                : 'Chiedimi della trama, dei personaggi o di un capitolo.'}</p>
+                ? 'Ask a question — I will answer in the voice of the book.'
+                : 'Ask me about the plot, the characters, or a chapter.'}</p>
             </div>
           )}
           {messages.map((m, i) => (
@@ -160,7 +160,7 @@ export default function BookChatSheet({ bookId, progress, targetLang, onClose }:
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') send() }}
             disabled={!ready || sending}
-            placeholder={ready ? 'Scrivi una domanda…' : 'In attesa dell’analisi…'}
+            placeholder={ready ? 'Write a question…' : 'Waiting for the analysis…'}
             style={{
               flex: 1, padding: '10px 12px', fontSize: 14, borderRadius: 10,
               border: '1px solid var(--border)', background: 'var(--bg)',
@@ -172,7 +172,7 @@ export default function BookChatSheet({ bookId, progress, targetLang, onClose }:
             onClick={send}
             disabled={!ready || sending || !input.trim()}
             style={{ padding: '0 18px' }}
-          >Invia</button>
+          >Send</button>
         </div>
       </div>
     </div>

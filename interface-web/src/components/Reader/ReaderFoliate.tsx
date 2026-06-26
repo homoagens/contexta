@@ -186,7 +186,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
 
     async function init() {
       const buf = await getBookFile(book.id)
-      if (!buf) { setError('File del libro non trovato in locale'); setLoading(false); return }
+      if (!buf) { setError('Book file not found locally'); setLoading(false); return }
       if (destroyed) return
       const file = new File([buf.slice(0)], 'book.epub', { type: 'application/epub+zip' })
       const view = document.createElement('foliate-view') as FoliateView
@@ -346,7 +346,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
           className="navbar-icon-btn"
           onClick={handleTranslate}
           disabled={!canTranslate}
-          title="Traduci la selezione"
+          title="Translate the selection"
           style={{ fontWeight: 700, fontSize: 13, opacity: canTranslate ? 1 : 0.35 }}
         >T→</button>
 
@@ -354,7 +354,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
           <button
             className={`navbar-icon-btn ${showBookChat ? 'active-icon' : ''}`}
             onClick={() => { setShowToc(false); setShowBookChat(v => !v) }}
-            title="Chiedi al libro"
+            title="Ask the book"
           >
             <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -384,7 +384,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
         )}
         {error && (
           <div className="empty-state">
-            <h3>Errore nel caricamento</h3>
+            <h3>Loading error</h3>
             <p>{error}</p>
           </div>
         )}
@@ -433,7 +433,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
               </button>
             </div>
             <div className="sheet-body">
-              {toc.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Nessun indice disponibile.</p>}
+              {toc.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No index available.</p>}
               {toc.map((item, i) => (
                 <button
                   key={i}

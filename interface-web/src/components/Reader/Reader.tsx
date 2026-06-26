@@ -643,7 +643,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
           selected_span: data.text, best_result: '',
           alternatives: [], span_role: '', span_sense: '',
           span_confidence: null, improved_sentence: '',
-          notes: 'Errore: ' + String(err),
+          notes: 'Error: ' + String(err),
         })
       }
     } finally { setTranslating(false); setStreamingText('') }
@@ -832,7 +832,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
         <button
           className={`navbar-icon-btn ${showReaderSettings ? 'active-icon' : ''}`}
           onClick={() => { closeAllPanels(); setShowReaderSettings(v => !v) }}
-          title="Impostazioni lettura"
+          title="Reading settings"
         >
           <svg width={20} height={20} viewBox="0 0 24 24">
             <text x="2" y="18" fontFamily="'Avenir Next',Georgia,serif" fontSize="14"
@@ -845,7 +845,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
           className="navbar-icon-btn"
           onClick={handleTranslateBtn}
           disabled={!canTranslate}
-          title={canTranslate ? (isSynonymMode ? 'Sinonimi per il testo selezionato' : 'Traduci testo selezionato') : 'Imposta URL e API key nelle Impostazioni'}
+          title={canTranslate ? (isSynonymMode ? 'Synonyms for the selected text' : 'Translate selected text') : 'Set URL and API key in Settings'}
           style={{ fontWeight: 700, fontSize: 13, opacity: canTranslate ? 1 : 0.35 }}
         >
           {isSynonymMode ? 'S≡' : 'T→'}
@@ -856,7 +856,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
           <button
             className={`navbar-icon-btn ${showBookChat ? 'active-icon' : ''}`}
             onClick={() => { closeAllPanels(); setShowBookChat(v => !v) }}
-            title="Chiedi al libro"
+            title="Ask the book"
           >
             <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -952,7 +952,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
         )}
         {error && (
           <div className="empty-state">
-            <h3>Errore nel caricamento</h3>
+            <h3>Loading error</h3>
             <p>{error}</p>
           </div>
         )}
@@ -1023,7 +1023,7 @@ function TocSheet({ toc, onNavigate, onClose }: {
         <div className="sheet-body" style={{ padding: 0 }}>
           {toc.length === 0 ? (
             <div className="empty-state" style={{ padding: '40px 24px' }}>
-              <h3>Nessun capitolo disponibile</h3>
+              <h3>No chapter available</h3>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1144,9 +1144,9 @@ function ReaderSettingsPanel({
 
         <div className="rs-divider" />
 
-        {/* Modello */}
+        {/* Model */}
         <div className="rs-row">
-          <span className="rs-label" style={{ minWidth: 52 }}>Modello</span>
+          <span className="rs-label" style={{ minWidth: 52 }}>Model</span>
           <select
             style={{ flex: 1, fontSize: 13, padding: '5px 8px', borderRadius: 8,
               border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}
@@ -1230,7 +1230,7 @@ function FavoritesSheet({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
-          <input className="form-input" type="search" placeholder="Cerca parole…"
+          <input className="form-input" type="search" placeholder="Search words…"
             value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%' }} />
         </div>
         <div className="sheet-body" style={{ padding: 0 }}>
@@ -1238,8 +1238,8 @@ function FavoritesSheet({ onClose }: { onClose: () => void }) {
             <div className="spinner-wrap"><div className="spinner" /></div>
           ) : filtered.length === 0 ? (
             <div className="empty-state" style={{ padding: '40px 24px' }}>
-              <h3>{search ? 'Nessun risultato' : 'Nessuna parola salvata'}</h3>
-              <p>{search ? 'Prova un termine diverso.' : 'Salva parole con ★ durante la traduzione.'}</p>
+              <h3>{search ? 'No results' : 'No saved words'}</h3>
+              <p>{search ? 'Try a different term.' : 'Save words with ★ while translating.'}</p>
             </div>
           ) : (
             <div className="fav-list">
