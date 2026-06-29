@@ -1,11 +1,13 @@
 """HTTP client per il backend / API esterne.
 
 Provider selezionato da LLM_PROVIDER nel .env:
-  "local"     → POST /llm sul backend self-hosted (default, gratuito)
+  "local"     → POST /chat/completions su un endpoint OpenAI-compatibile
+                (LM Studio, llama.cpp, Ollama, vLLM... default, gratuito)
   "anthropic" → Anthropic API (richiede ANTHROPIC_API_KEY)
   "openai"    → OpenAI API   (richiede OPENAI_API_KEY)
 
-Il lookup deterministico (/tools/lookup) è disponibile solo con backend locale.
+Il lookup deterministico (/tools/lookup) è un'estensione custom: se il backend
+non lo espone (server OpenAI standard) si degrada alla traduzione via LLM.
 """
 from __future__ import annotations
 
@@ -35,6 +37,9 @@ class BackendClient:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         self._client = httpx.AsyncClient(timeout=timeout, headers=headers)
+        # Set once we learn the backend has no /tools/lookup (OpenAI-compatible
+        # servers don't) — avoids a wasted 404 round-trip on every translation.
+        self._lookup_unavailable = False
         log.info("BackendClient — provider=%s", config.LLM_PROVIDER)
 
     # ── Context manager ────────────────────────────────────────────────────────
@@ -90,28 +95,27 @@ class BackendClient:
         model: str = "",
     ) -> str:
         payload: Dict[str, Any] = {
+            "model": model or config.LOCAL_MODEL_NAME,
             "messages": messages,
             "temperature": temperature,
             "top_p": top_p,
             "max_tokens": max_tokens,
-            "json_mode": json_mode,
-            # Disable qwen3 thinking mode.
-            # llama.cpp reads "enable_thinking" from chat_template_kwargs;
-            # "reasoning_budget": 0 is the numeric equivalent.
-            # Rout may or may not forward these — the prompt-level /no_think
-            # in the user message is the reliable fallback (see prompts.py).
+            # Best-effort disable of qwen3-style thinking on self-hosted servers
+            # that honour it (llama.cpp/vLLM read "enable_thinking" from
+            # chat_template_kwargs; "reasoning_budget": 0 is the numeric
+            # equivalent). Unknown fields are ignored by other servers; the
+            # model-agnostic _FAST_HINT in the system prompt is the portable
+            # fallback (see prompts.py).
             "chat_template_kwargs": {"enable_thinking": False},
             "reasoning_budget": 0,
         }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
         if reasoning_effort is not None:
             payload["reasoning_effort"] = reasoning_effort
-        if model:
-            payload["model"] = model
-        elif config.LOCAL_MODEL_NAME:
-            payload["model"] = config.LOCAL_MODEL_NAME
-        r = await self._client.post(f"{self.base_url}/llm", json=payload)
+        r = await self._client.post(f"{self.base_url}/chat/completions", json=payload)
         r.raise_for_status()
-        text = r.json().get("text", "")
+        text = r.json()["choices"][0]["message"]["content"] or ""
         return _THINK_RE.sub("", text).strip()
 
     async def _llm_anthropic(self, messages, temperature, max_tokens, model: str = "") -> str:
@@ -160,7 +164,7 @@ class BackendClient:
     ):
         """Yield text deltas from a streaming LLM call (local backend only).
 
-        Calls /v1/chat/completions with stream=True (OpenAI SSE format).
+        Calls /chat/completions with stream=True (OpenAI SSE format).
         Each yielded value is a raw text chunk (str). Only works with the
         local provider; raises NotImplementedError for external providers.
         """
@@ -171,15 +175,15 @@ class BackendClient:
             model_override if model_override and model_override != "local"
             else config.LOCAL_MODEL_NAME
         )
-        # Base payload — same keys as /llm so rout understands it.
-        # Include all known no-think flags; rout/llama.cpp honours whichever it knows.
+        # OpenAI-compatible chat payload. The no-think flags are extra fields that
+        # self-hosted servers (llama.cpp/vLLM) honour and OpenAI-strict servers
+        # ignore; the _FAST_HINT in the system prompt is the portable fallback.
         base_payload: Dict[str, Any] = {
             "model": model_name,
             "messages": messages,
             "temperature": temperature,
             "top_p": top_p,
             "max_tokens": max_tokens,
-            "json_mode": False,
             "chat_template_kwargs": {"enable_thinking": False},
             "reasoning_budget": 0,
         }
@@ -190,12 +194,13 @@ class BackendClient:
         # Blocking fallback payload must NOT include stream:True
         block_payload = {**base_payload}
 
-        # Try /llm/stream first (SSE response, same format as blocking /llm).
-        # Falls back to blocking /llm on 404 — no visual streaming but works correctly.
+        # Try streaming /chat/completions (OpenAI SSE). Some servers don't support
+        # streaming → fall back to a blocking /chat/completions call (no visual
+        # streaming but correct output).
         stream_timeout = httpx.Timeout(connect=10.0, read=300.0, write=30.0, pool=30.0)
         try:
             async with self._client.stream(
-                "POST", f"{self.base_url}/llm/stream",
+                "POST", f"{self.base_url}/chat/completions",
                 json=stream_payload, timeout=stream_timeout,
             ) as r:
                 if r.status_code == 404:
@@ -212,6 +217,12 @@ class BackendClient:
                         choices = chunk.get("choices") or []
                         if choices:
                             delta = choices[0].get("delta") or {}
+                            # Some servers stream reasoning in a separate field
+                            # instead of inline <think> tags — wrap it so the
+                            # skill treats it as thinking (see translate.py).
+                            rc = delta.get("reasoning_content") or delta.get("reasoning") or ""
+                            if rc:
+                                yield f"<think>{rc}</think>"
                             text = delta.get("content") or ""
                         else:
                             text = chunk.get("text") or ""
@@ -222,13 +233,13 @@ class BackendClient:
         except httpx.HTTPStatusError as e:
             if e.response.status_code != 404:
                 raise
-            log.debug("llm_stream: /llm/stream not available, falling back to /llm")
+            log.debug("llm_stream: streaming not available, falling back to blocking call")
             r2 = await self._client.post(
-                f"{self.base_url}/llm", json=block_payload,
+                f"{self.base_url}/chat/completions", json=block_payload,
                 timeout=stream_timeout,
             )
             r2.raise_for_status()
-            text = r2.json().get("text", "")
+            text = r2.json()["choices"][0]["message"]["content"] or ""
             text = _THINK_RE.sub("", text).strip()
             if text:
                 yield text
@@ -238,14 +249,24 @@ class BackendClient:
     async def lookup(
         self, span: str, source_lang: str = "en", target_lang: str = "it"
     ) -> Optional[LookupResult]:
-        """Lookup deterministico — solo con backend locale; None altrimenti."""
-        if config.LLM_PROVIDER != "local":
+        """Lookup deterministico — estensione custom del backend.
+
+        Disponibile solo con provider locale e solo se il server espone
+        /tools/lookup; sui server OpenAI-compatibili standard non esiste, quindi
+        si degrada a None (la traduzione prosegue via LLM).
+        """
+        if config.LLM_PROVIDER != "local" or self._lookup_unavailable:
             return None
-        r = await self._client.post(
-            f"{self.base_url}/tools/lookup",
-            json={"span": span, "source_lang": source_lang, "target_lang": target_lang},
-        )
-        r.raise_for_status()
+        try:
+            r = await self._client.post(
+                f"{self.base_url}/tools/lookup",
+                json={"span": span, "source_lang": source_lang, "target_lang": target_lang},
+            )
+            r.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError):
+            # Backend has no deterministic lookup — stop trying for this session.
+            self._lookup_unavailable = True
+            return None
         data = r.json()
         if data.get("type") == "none":
             return None
@@ -264,6 +285,14 @@ class BackendClient:
             model = (config.ANTHROPIC_MODEL if config.LLM_PROVIDER == "anthropic"
                      else config.OPENAI_MODEL)
             return {"ok": True, "provider": config.LLM_PROVIDER, "model": model}
-        r = await self._client.get(f"{self.base_url}/health")
-        r.raise_for_status()
-        return r.json()
+        # OpenAI-compatible servers expose /models (not /health).
+        try:
+            r = await self._client.get(f"{self.base_url}/models")
+            r.raise_for_status()
+            data = r.json()
+            models = [m.get("id") for m in data.get("data", []) if isinstance(m, dict)]
+            return {"ok": True, "provider": "local",
+                    "model": config.LOCAL_MODEL_NAME, "models": models}
+        except (httpx.HTTPStatusError, httpx.RequestError) as e:
+            return {"ok": False, "provider": "local",
+                    "model": config.LOCAL_MODEL_NAME, "error": str(e)}

@@ -73,9 +73,10 @@ export async function batchTranslate(
 // ─── Streaming translation ───────────────────────────────────────────────────
 
 export type StreamEvent =
-  | { type: 'token';  text: string }
-  | { type: 'result'; data: TranslationResult }
-  | { type: 'error';  message: string }
+  | { type: 'token';    text: string }
+  | { type: 'thinking'; text: string }
+  | { type: 'result';   data: TranslationResult }
+  | { type: 'error';    message: string }
 
 /**
  * Stream a translation request. Yields StreamEvent objects:
@@ -231,9 +232,8 @@ export async function bookChat(
 
 export async function checkHealth(apiUrl: string, apiKey: string): Promise<{
   ok: boolean;
-  llm_model?: string;
   mode?: string;
-  backend?: { ok: boolean; llm_model?: string };
+  backend?: { ok: boolean; provider?: string; model?: string; models?: string[] };
   backend_error?: string;
 }> {
   const url = resolveUrl(apiUrl, '/health')

@@ -11,8 +11,11 @@ echo This will write a .env file for Contexta.
 echo Point it at any OpenAI-compatible endpoint
 echo (Ollama, LM Studio, vLLM, llama.cpp, OpenAI, Groq, OpenRouter...).
 echo.
+echo Enter the BASE url, ending in /v1 (the client calls /v1/chat/completions).
+echo   e.g. http://127.0.0.1:8000/v1   LM Studio: http://127.0.0.1:1234/v1
+echo.
 
-set "DEFAULT_URL=http://127.0.0.1:8787"
+set "DEFAULT_URL=http://127.0.0.1:8000/v1"
 set "DEFAULT_MODEL=qwen3.6-35b-a3b"
 
 set /p BASE_URL=Backend URL [%DEFAULT_URL%]:

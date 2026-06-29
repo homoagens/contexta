@@ -8,7 +8,8 @@ interface Props {
   selectedText: string
   result: TranslationResult | null
   loading: boolean
-  streamingText?: string  // raw LLM token stream, shown while loading
+  streamingText?: string   // raw LLM answer stream, shown while loading
+  streamingThink?: string  // model reasoning (<think>) stream, shown live
   onClose: () => void
   apiUrl: string
   apiKey: string
@@ -35,7 +36,7 @@ function rMode(r: TranslationResult): string {
   return r.mode || 'translate'
 }
 
-export default function TranslationPanel({ selectedText, result, loading, streamingText, onClose, apiUrl, apiKey }: Props) {
+export default function TranslationPanel({ selectedText, result, loading, streamingText, streamingThink, onClose, apiUrl, apiKey }: Props) {
   const [savedFavId, setSavedFavId] = useState<string | null>(null)
   const [savingFav, setSavingFav] = useState(false)
 
@@ -96,12 +97,22 @@ export default function TranslationPanel({ selectedText, result, loading, stream
         <div className="sheet-body">
           {loading && (
             <div style={{ padding: '16px 0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: streamingText ? 10 : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: (streamingText || streamingThink) ? 10 : 0 }}>
                 <div className="spinner" style={{ width: 16, height: 16, flexShrink: 0 }} />
                 <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                  Translating…
+                  {streamingThink && !streamingText ? 'Thinking…' : 'Translating…'}
                 </span>
               </div>
+              {streamingThink && (
+                <div style={{
+                  fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic',
+                  whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5,
+                  borderLeft: '2px solid var(--border)', paddingLeft: 10, marginBottom: 10,
+                  maxHeight: 160, overflowY: 'auto', opacity: 0.85,
+                }}>
+                  {streamingThink}
+                </div>
+              )}
               {streamingText && (
                 <div style={{
                   fontFamily: 'monospace', fontSize: 11, color: 'var(--text-muted)',
@@ -329,16 +340,24 @@ type UiLabels = {
   thinking: string
 }
 
+// askAI is the verb only; the model name (result.translated_by) is appended at
+// render time so the UI always shows the model chosen in configuration.
 const UI_LABELS: Record<string, UiLabels> = {
-  it: { meaning: 'Significato', improvedSentence: 'Frase migliorata', askAI: 'Chiedi a Gemma', askPlaceholder: 'Fai una domanda…', thinking: 'Elaboro…' },
-  en: { meaning: 'Meaning',     improvedSentence: 'Improved sentence', askAI: 'Ask Gemma',      askPlaceholder: 'Ask a question…',   thinking: 'Thinking…' },
-  de: { meaning: 'Bedeutung',   improvedSentence: 'Verbesserter Satz', askAI: 'Frag Gemma',     askPlaceholder: 'Stell eine Frage…', thinking: 'Überlege…' },
-  fr: { meaning: 'Signification', improvedSentence: 'Phrase améliorée', askAI: 'Demande à Gemma', askPlaceholder: 'Pose une question…', thinking: 'Réfléchis…' },
-  es: { meaning: 'Significado', improvedSentence: 'Frase mejorada',    askAI: 'Pregunta a Gemma', askPlaceholder: 'Haz una pregunta…', thinking: 'Pensando…' },
+  it: { meaning: 'Significato', improvedSentence: 'Frase migliorata', askAI: 'Chiedi a', askPlaceholder: 'Fai una domanda…', thinking: 'Elaboro…' },
+  en: { meaning: 'Meaning',     improvedSentence: 'Improved sentence', askAI: 'Ask',      askPlaceholder: 'Ask a question…',   thinking: 'Thinking…' },
+  de: { meaning: 'Bedeutung',   improvedSentence: 'Verbesserter Satz', askAI: 'Frag',     askPlaceholder: 'Stell eine Frage…', thinking: 'Überlege…' },
+  fr: { meaning: 'Signification', improvedSentence: 'Phrase améliorée', askAI: 'Demande à', askPlaceholder: 'Pose une question…', thinking: 'Réfléchis…' },
+  es: { meaning: 'Significado', improvedSentence: 'Frase mejorada',    askAI: 'Pregunta a', askPlaceholder: 'Haz una pregunta…', thinking: 'Pensando…' },
 }
 
 function getLabels(targetLang: string): UiLabels {
   return UI_LABELS[targetLang] ?? UI_LABELS['en']
+}
+
+/** "Chiedi a" + the configured model name (falls back to a generic word). */
+function askLabel(labels: UiLabels, result: TranslationResult): string {
+  const model = (result.translated_by || '').trim()
+  return model ? `${labels.askAI} ${model}` : `${labels.askAI} AI`
 }
 
 // ─── Quick questions per target language ─────────────────────────────────────
@@ -403,6 +422,7 @@ function ChatSection({ result, apiUrl, apiKey }: {
   const [error, setError] = useState('')
   const abortRef = useRef<AbortController | null>(null)
   const labels = getLabels(result.target_lang || 'it')
+  const askText = askLabel(labels, result)
 
   async function ask(q: string, constrained = true) {
     if (!q.trim() || loading) return
@@ -432,7 +452,7 @@ function ChatSection({ result, apiUrl, apiKey }: {
           <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
-          {labels.askAI}
+          {askText}
         </button>
       </div>
     )
@@ -441,7 +461,7 @@ function ChatSection({ result, apiUrl, apiKey }: {
   return (
     <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{labels.askAI}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{askText}</span>
         <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, lineHeight: 1 }} onClick={() => setOpen(false)}>×</button>
       </div>
 

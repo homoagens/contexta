@@ -41,6 +41,7 @@ log = logging.getLogger("agent.server")
 
 _DIST = Path(__file__).parent.parent / "interface-web" / "dist"
 _agent: Optional[Agent] = None
+_server: Any = None  # uvicorn.Server — set by run_server(), used by /shutdown
 
 
 @asynccontextmanager
@@ -205,6 +206,18 @@ async def logout_endpoint(token: str = Depends(_bearer)) -> Any:
     return ORJSONResponse({"ok": True})
 
 
+@app.post("/shutdown")
+async def shutdown_endpoint(_user: str = Depends(require_auth)) -> Any:
+    """Stop the Contexta service gracefully (powers the UI 'Quit' button).
+
+    Triggers uvicorn's graceful shutdown: the response is sent first, then the
+    server stops accepting connections and the process exits.
+    """
+    if _server is not None:
+        _server.should_exit = True
+    return ORJSONResponse({"ok": True, "shutting_down": _server is not None})
+
+
 @app.get("/me")
 async def me_endpoint(user: str = Depends(require_auth)) -> Any:
     return ORJSONResponse({"username": user})
@@ -268,9 +281,10 @@ async def translate_stream_endpoint(
     """SSE stream of LLM token deltas followed by the final structured result.
 
     Each SSE message is a JSON object with a "type" field:
-      {"type": "token",  "text":  "..."}   — incremental LLM output
-      {"type": "result", "data":  {...}}    — final parsed TranslateOutput
-      {"type": "error",  "message": "..."}  — unrecoverable failure
+      {"type": "token",    "text": "..."}   — incremental answer output
+      {"type": "thinking", "text": "..."}   — model reasoning (<think>) deltas
+      {"type": "result",   "data": {...}}    — final parsed TranslateOutput
+      {"type": "error",    "message": "..."} — unrecoverable failure
     """
     if _agent is None:
         raise HTTPException(status_code=503, detail="Agent not initialised")
@@ -291,6 +305,8 @@ async def translate_stream_endpoint(
             async for kind, data in skill.run_stream(inp, client):
                 if kind == "token":
                     payload = _json.dumps({"type": "token", "text": data})
+                elif kind == "thinking":
+                    payload = _json.dumps({"type": "thinking", "text": data})
                 else:
                     payload = _json.dumps({"type": "result", "data": data.to_dict()})
                     try:
@@ -568,8 +584,11 @@ if _DIST.is_dir():
 # ---------------------------------------------------------------------------
 
 def run_server(backend_url: str, api_key: str, port: int = 8001) -> None:
-    global _agent
+    global _agent, _server
     import uvicorn
     _agent = Agent(backend_url, api_key)
     log.info("Agent server on port %d — backend=%s", port, backend_url)
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    # Build an explicit Server so /shutdown can request a graceful stop.
+    cfg = uvicorn.Config(app, host="0.0.0.0", port=port, log_level="info")
+    _server = uvicorn.Server(cfg)
+    _server.run()

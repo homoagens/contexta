@@ -6,7 +6,7 @@ import Favorites from './components/Favorites/Favorites'
 import Settings from './components/Settings/Settings'
 import Login from './components/Login/Login'
 import { getSettings, getBook, saveBook, getBookFile, updateLastCfi, saveSettings } from './store/db'
-import { getStoredToken, storeToken, validateToken, logout, clearToken } from './api/auth'
+import { getStoredToken, storeToken, validateToken, logout, clearToken, shutdownService } from './api/auth'
 import { getBookFileBuffer, fetchPosition } from './api/books'
 import { fetchBookKb } from './api/translate'
 import type { Settings as SettingsType, Book, ServerBook } from './types'
@@ -71,6 +71,17 @@ export default function App() {
     setAuthenticated(false)
     setActiveBook(null)
     localStorage.removeItem(LAST_BOOK_KEY)
+  }
+
+  async function handleQuit() {
+    if (!confirm('Spegnere il servizio Contexta? Il server si arresterà e dovrai riavviarlo manualmente.')) return
+    const token = getStoredToken()
+    try {
+      await shutdownService(token)
+    } catch { /* the server may drop the connection mid-response — expected */ }
+    document.body.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#888;text-align:center;padding:24px">'
+      + 'Contexta è stato arrestato.<br>Riavvia il servizio per continuare.</div>'
   }
 
   function openBook(book: Book) {
@@ -159,6 +170,7 @@ export default function App() {
             settings={settings}
             onChange={handleSettingsChange}
             onLogout={handleLogout}
+            onQuit={handleQuit}
           />
         )}
       </div>

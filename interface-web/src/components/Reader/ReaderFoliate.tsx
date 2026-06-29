@@ -113,6 +113,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
   const [showPanel, setShowPanel] = useState(false)
   const [translating, setTranslating] = useState(false)
   const [streamingText, setStreamingText] = useState('')
+  const [streamingThink, setStreamingThink] = useState('')
   const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -276,6 +277,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
     setTranslating(true)
     setTranslationResult(null)
     setStreamingText('')
+    setStreamingThink('')
     abortRef.current?.abort()
     const ctrl = new AbortController()
     abortRef.current = ctrl
@@ -294,6 +296,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
         s.apiUrl, s.apiKey, ctrl.signal,
       )) {
         if (ev.type === 'token') setStreamingText(prev => prev + ev.text)
+        else if (ev.type === 'thinking') setStreamingThink(prev => prev + ev.text)
         else if (ev.type === 'result') setTranslationResult(ev.data)
         else if (ev.type === 'error') throw new Error(ev.message)
       }
@@ -308,6 +311,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
     } finally {
       setTranslating(false)
       setStreamingText('')
+      setStreamingThink('')
     }
   }
 
@@ -317,6 +321,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
     setSelection(null)
     setTranslationResult(null)
     setStreamingText('')
+    setStreamingThink('')
     viewRef.current?.deselect()
   }
 
@@ -414,6 +419,7 @@ export default function ReaderFoliate({ book, settings, onClose }: Props) {
           result={translationResult}
           loading={translating}
           streamingText={streamingText}
+          streamingThink={streamingThink}
           apiUrl={settings.apiUrl}
           apiKey={settings.apiKey}
           onClose={closePanel}

@@ -88,7 +88,7 @@ export interface AgentModel {
 }
 
 export const AGENT_MODELS: AgentModel[] = [
-  { value: 'local', label: 'Local (gemma3-4b)', provider: 'local' },
+  { value: 'local', label: 'Local', provider: 'local' },
 ]
 
 export type FontFamily =

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Epub, { Book as EpubBook, Rendition } from 'epubjs'
 import { getBookFile, getBook, updateLastCfi, saveSettings, getFavorites, deleteFavorite } from '../../store/db'
-import { translateStream, batchTranslate, fetchHardWords } from '../../api/translate'
+import { translateStream, batchTranslate, fetchHardWords, checkHealth } from '../../api/translate'
 import BookChatSheet from './BookChatSheet'
 import { savePosition } from '../../api/books'
 import TranslationPanel from '../TranslationPanel/TranslationPanel'
@@ -146,8 +146,11 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
   const [selection, setSelection] = useState<SelectionState | null>(null)
   const [translating, setTranslating] = useState(false)
   const [streamingText, setStreamingText] = useState('')
+  const [streamingThink, setStreamingThink] = useState('')
   const [translationResult, setTranslationResult] = useState<TranslationResult | null>(null)
   const [showPanel, setShowPanel] = useState(false)
+  // Configured model name (shown in the Model dropdown), fetched from /health.
+  const [modelName, setModelName] = useState('')
   const abortRef = useRef<AbortController | null>(null)
   const currentCfiRef = useRef<string>('')   // always holds the latest reading position
   const [resumeToast, setResumeToast] = useState(false)
@@ -195,6 +198,14 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
     setShowFavorites(false)
     setShowBookChat(false)
   }
+
+  useEffect(() => {
+    let cancelled = false
+    checkHealth(settings.apiUrl, settings.apiKey)
+      .then(h => { if (!cancelled) setModelName(h.backend?.model || '') })
+      .catch(() => { /* backend offline — keep the generic label */ })
+    return () => { cancelled = true }
+  }, [settings.apiUrl, settings.apiKey])
 
   useEffect(() => {
     let destroyed = false
@@ -538,7 +549,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
     abortRef.current?.abort()
     const ctrl = new AbortController()
     abortRef.current = ctrl
-    setTranslating(true); setShowPanel(true); setTranslationResult(null); setStreamingText('')
+    setTranslating(true); setShowPanel(true); setTranslationResult(null); setStreamingText(''); setStreamingThink('')
     const s = settingsRef.current
     try {
       for await (const ev of translateStream(
@@ -557,6 +568,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
         s.apiUrl, s.apiKey, ctrl.signal
       )) {
         if (ev.type === 'token') setStreamingText(prev => prev + ev.text)
+        else if (ev.type === 'thinking') setStreamingThink(prev => prev + ev.text)
         else if (ev.type === 'result') setTranslationResult(ev.data)
         else if (ev.type === 'error') throw new Error(ev.message)
       }
@@ -569,7 +581,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
           notes: 'Error: ' + String(err),
         })
       }
-    } finally { setTranslating(false); setStreamingText('') }
+    } finally { setTranslating(false); setStreamingText(''); setStreamingThink('') }
   }
 
   // Pulsante fisso nella navbar — legge la selezione corrente dagli iframe
@@ -615,7 +627,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
     abortRef.current?.abort()
     const ctrl = new AbortController()
     abortRef.current = ctrl
-    setTranslating(true); setShowPanel(true); setTranslationResult(null); setStreamingText('')
+    setTranslating(true); setShowPanel(true); setTranslationResult(null); setStreamingText(''); setStreamingThink('')
     const s = settingsRef.current
     try {
       for await (const ev of translateStream(
@@ -634,6 +646,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
         s.apiUrl, s.apiKey, ctrl.signal
       )) {
         if (ev.type === 'token') setStreamingText(prev => prev + ev.text)
+        else if (ev.type === 'thinking') setStreamingThink(prev => prev + ev.text)
         else if (ev.type === 'result') setTranslationResult(ev.data)
         else if (ev.type === 'error') throw new Error(ev.message)
       }
@@ -646,7 +659,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
           notes: 'Error: ' + String(err),
         })
       }
-    } finally { setTranslating(false); setStreamingText('') }
+    } finally { setTranslating(false); setStreamingText(''); setStreamingThink('') }
   }
 
   // Extend the selection by one word in the given direction.
@@ -716,7 +729,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
 
   function handleClosePanel() {
     abortRef.current?.abort()
-    setShowPanel(false); setSelection(null); setTranslationResult(null); setStreamingText('')
+    setShowPanel(false); setSelection(null); setTranslationResult(null); setStreamingText(''); setStreamingThink('')
     selectionSourceRef.current = null
   }
 
@@ -894,6 +907,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
           settings={settings}
           onChange={handleReaderSettingsChange}
           onClose={() => setShowReaderSettings(false)}
+          modelName={modelName}
         />
       )}
 
@@ -972,6 +986,7 @@ export default function Reader({ book, settings, onSettingsChange, onClose }: Pr
           result={translationResult}
           loading={translating}
           streamingText={streamingText}
+          streamingThink={streamingThink}
           apiUrl={settings.apiUrl}
           apiKey={settings.apiKey}
           onClose={handleClosePanel}
@@ -1062,11 +1077,12 @@ const FONT_FAMILIES: { name: FontFamily; label: string }[] = [
 ]
 
 function ReaderSettingsPanel({
-  settings, onChange, onClose
+  settings, onChange, onClose, modelName
 }: {
   settings: Settings
   onChange: (patch: Partial<Settings>) => void
   onClose: () => void
+  modelName?: string
 }) {
   return (
     <div className="reader-settings-panel" onClick={onClose}>
@@ -1154,7 +1170,9 @@ function ReaderSettingsPanel({
             onChange={e => onChange({ model: e.target.value })}
           >
             {AGENT_MODELS.map(m => (
-              <option key={m.value} value={m.value}>{m.label}</option>
+              <option key={m.value} value={m.value}>
+                {m.value === 'local' && modelName ? `Local (${modelName})` : m.label}
+              </option>
             ))}
           </select>
         </div>

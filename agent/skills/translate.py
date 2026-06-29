@@ -268,9 +268,11 @@ class TranslateSkill:
             messages = build_translate_messages(payload, source_lang, target_lang)
 
         # --- Stream LLM ---
-        # Suppress <think>...</think> blocks: track whether we are inside one
-        # so we neither yield those tokens to the UI nor include them in the
-        # JSON accumulation. Some models emit thinking even when not requested.
+        # Split the stream into two channels:
+        #   ("thinking", text) — content inside <think>...</think> (shown live in
+        #                        the UI but NOT fed into the JSON parse)
+        #   ("token",    text) — the real answer (accumulated for JSON parsing)
+        # A rolling buffer guards against tags split across chunks.
         accumulated = ""
         in_think = False
         think_buf = ""
@@ -284,41 +286,50 @@ class TranslateSkill:
                 model_override=inp.model,
             ):
                 think_buf += chunk
-                # Flush safe (non-think) prefix from the rolling buffer
                 while True:
                     if not in_think:
                         open_idx = think_buf.find("<think>")
                         if open_idx == -1:
-                            # No think tag anywhere — safe to emit everything
-                            # except the last 6 chars (partial "<think>" guard)
+                            # No opening tag — emit everything except the last 6
+                            # chars (partial "<think>" guard) as answer tokens.
                             safe = think_buf[:-6] if len(think_buf) > 6 else ""
                             if safe:
                                 accumulated += safe
                                 yield ("token", safe)
                                 think_buf = think_buf[len(safe):]
                             break
-                        else:
-                            # Emit everything before the opening tag
-                            if open_idx > 0:
-                                safe = think_buf[:open_idx]
-                                accumulated += safe
-                                yield ("token", safe)
-                            think_buf = think_buf[open_idx + len("<think>"):]
-                            in_think = True
+                        # Emit answer text before the opening tag
+                        if open_idx > 0:
+                            safe = think_buf[:open_idx]
+                            accumulated += safe
+                            yield ("token", safe)
+                        think_buf = think_buf[open_idx + len("<think>"):]
+                        in_think = True
                     else:
                         close_idx = think_buf.find("</think>")
                         if close_idx == -1:
-                            break  # still inside <think>, buffer accumulating
-                        # Discard everything up to and including </think>
+                            # Still inside <think>: stream the safe prefix as
+                            # thinking, keep an 8-char tail for a split "</think>".
+                            safe = think_buf[:-8] if len(think_buf) > 8 else ""
+                            if safe:
+                                yield ("thinking", safe)
+                                think_buf = think_buf[len(safe):]
+                            break
+                        # Emit the remaining thinking up to the closing tag
+                        if close_idx > 0:
+                            yield ("thinking", think_buf[:close_idx])
                         think_buf = think_buf[close_idx + len("</think>"):]
                         in_think = False
         except Exception as e:
             raise RuntimeError(f"LLM stream failed: {e}") from e
 
-        # Flush remaining buffer (should be empty or trailing non-think text)
-        if think_buf and not in_think:
-            accumulated += think_buf
-            yield ("token", think_buf)
+        # Flush whatever remains in the buffer
+        if think_buf:
+            if in_think:
+                yield ("thinking", think_buf)
+            else:
+                accumulated += think_buf
+                yield ("token", think_buf)
 
         # --- Parse + validate ---
         trusted = hints.get("target_lemmas") if hints else None

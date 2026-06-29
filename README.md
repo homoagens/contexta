@@ -50,16 +50,16 @@ Browser (PWA / iOS home screen)
     ▼
 Agent  ──── also serves the built frontend (dist/)
 (FastAPI / uvicorn, port 8001)
-    │  HTTP  (configurable, default 8787)
+    │  HTTP  POST /v1/chat/completions  (OpenAI-compatible, URL set in configure)
     ▼
 LLM backend
-(local inference server — e.g. llama.cpp, vLLM, Ollama —
+(local inference server — e.g. llama.cpp, vLLM, Ollama, LM Studio —
  or Anthropic / OpenAI API)
 ```
 
 A single Python process exposes both the API and the static frontend. The LLM backend is a separate external service (not included).
 
-The agent follows a **skill-dispatch** pattern: each HTTP endpoint routes to a self-contained skill (`translate`, `chat`, `analyze`, `book_chat`, `batch_translate`) that owns its own prompts, retry loop, and validation. The LLM backend is treated as a dumb tool registry (`/llm`, `/tools/lookup`).
+The agent follows a **skill-dispatch** pattern: each HTTP endpoint routes to a self-contained skill (`translate`, `chat`, `analyze`, `book_chat`, `batch_translate`) that owns its own prompts, retry loop, and validation. For the `local` provider it talks to any OpenAI-compatible `/chat/completions` endpoint; an optional deterministic dictionary lookup (`/tools/lookup`) is used when the backend exposes it.
 
 <details>
 <summary>Project layout</summary>
@@ -100,33 +100,38 @@ contexta/
 
 ## ⚡ Quickstart
 
-**Prerequisites:** Python 3.11+, Node.js 18+ and npm (only to rebuild the frontend), and an LLM backend reachable over HTTP (or an Anthropic / OpenAI API key).
+**Prerequisites:** Python 3.11+, Node.js 18+ and npm, and an LLM endpoint reachable over HTTP (any OpenAI-compatible server — Ollama, LM Studio, llama.cpp, vLLM — or an Anthropic / OpenAI API key).
+
+The entire setup is **three scripts, run in order**. Each has a `.sh` (Linux/macOS) and a `.bat` (Windows) twin — pick the one for your OS and the pipeline is identical everywhere.
 
 ```bash
-# 1. Python dependencies
-pip install -r requirements.txt
-#   optional, depending on provider:
-pip install anthropic        # if LLM_PROVIDER=anthropic
-pip install openai           # if LLM_PROVIDER=openai
+# 1. Install — creates the Python venv, installs deps, builds the frontend
+./install.sh                 #  Windows:  install.bat
 
-# 2. Configuration — interactive (writes .env for you)
-./configure.sh               # or configure.bat on Windows
+# 2. Configure — interactive prompts; writes your .env
+./configure.sh               #  Windows:  configure.bat
 
-# 3. Build the frontend (first time + after frontend changes)
-cd interface-web && npm install && npm run build && cd ..
-
-# 4. Run
-python -m agent.run serve --port 8001
+# 3. Start — launches the server on :8001 and opens your browser
+./start.sh                   #  Windows:  start.bat
 ```
 
-Open `http://localhost:8001`. On first run (no users yet) the login form shows "Create account".
+That's it. Open `http://localhost:8001` (step 3 opens it for you). On first run (no users yet) the login form shows **"Create account"**.
 
-For development with hot-reload:
+> When **configure** asks for the *Backend URL*, give the **base URL ending in `/v1`** (the agent calls `/v1/chat/completions`), e.g. `http://127.0.0.1:8000/v1`, or LM Studio's `http://127.0.0.1:1234/v1`.
+
+Re-run any step independently later: `configure` to point at a different model/endpoint, `install` after pulling frontend changes, `start` to relaunch. To stop the service, use the **⏻ Quit** button in the app's Settings (or `Ctrl-C` in the terminal).
+
+<details>
+<summary>Manual / development setup (hot-reload)</summary>
 
 ```bash
-cd interface-web && npm run dev &     # frontend on :5173
+pip install -r requirements.txt       # + `anthropic` or `openai` for those providers
+./configure.sh                        # write .env
+cd interface-web && npm run dev &     # frontend on :5173 (Vite proxy → :8001)
 cd .. && python -m agent.run serve    # agent on :8001
 ```
+
+</details>
 
 ---
 
@@ -137,7 +142,7 @@ Key variables in `.env` (see `.env.example` for the full list):
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LLM_PROVIDER` | `local` | `local` / `anthropic` / `openai` |
-| `BACKEND_URL` | `http://127.0.0.1:8787` | Local LLM server URL |
+| `BACKEND_URL` | `http://127.0.0.1:8000/v1` | OpenAI-compatible base URL (ends in `/v1`) |
 | `API_KEY` | — | Bearer key for the local backend |
 | `LOCAL_MODEL_NAME` | `qwen3.6-35b-a3b` | Model name sent to the backend router |
 | `ANTHROPIC_API_KEY` | — | Required if `LLM_PROVIDER=anthropic` |
@@ -150,7 +155,7 @@ Key variables in `.env` (see `.env.example` for the full list):
 | `SESSION_TTL_DAYS` | `30` | Session lifetime |
 | `ADMIN_KEY` | — | Enables the HTTP admin API (optional) |
 
-> **Note on local models:** Contexta is tuned for instruction-following models that return structured JSON. For reasoning models (e.g. Qwen3), thinking mode is disabled for translation to keep latency low — both via backend params and a prompt-level `/no_think` hint.
+> **Note on local models:** Contexta is tuned for instruction-following models that return structured JSON. For reasoning models (e.g. Qwen3), a model-agnostic system-prompt hint keeps translation latency low without vendor-specific tokens, and any reasoning the model still emits is streamed live to the UI rather than hidden.
 
 ---
 

@@ -56,6 +56,13 @@ export async function logout(token: string): Promise<void> {
   clearToken()
 }
 
+export async function shutdownService(token: string): Promise<void> {
+  await fetch('/shutdown', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+  })
+}
+
 export async function validateToken(token: string): Promise<boolean> {
   if (!token) return false
   try {

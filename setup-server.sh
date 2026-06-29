@@ -33,13 +33,22 @@ else
     [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 fi
 
-# ── 1. .env: crea se mancante, imposta BACKEND_URL locale ─────────────────────
+# ── 1. .env: crea se mancante; NON sovrascrivere una BACKEND_URL già scelta ───
 if [ ! -f "$SCRIPT_DIR/.env" ]; then
     cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
     echo ".env creato da .env.example"
 fi
-sed -i 's|^BACKEND_URL=.*|BACKEND_URL=http://127.0.0.1:8787|' "$SCRIPT_DIR/.env"
-echo "BACKEND_URL → http://127.0.0.1:8787"
+# Imposta il default locale solo se BACKEND_URL è assente o vuota,
+# così rispettiamo la porta configurata con configure.sh.
+if grep -qE '^BACKEND_URL=.+' "$SCRIPT_DIR/.env"; then
+    echo "BACKEND_URL già impostata → $(grep -E '^BACKEND_URL=' "$SCRIPT_DIR/.env" | head -1 | cut -d= -f2-)"
+elif grep -qE '^BACKEND_URL=' "$SCRIPT_DIR/.env"; then
+    sed -i 's|^BACKEND_URL=.*|BACKEND_URL=http://127.0.0.1:8787|' "$SCRIPT_DIR/.env"
+    echo "BACKEND_URL vuota → impostata default http://127.0.0.1:8787"
+else
+    printf 'BACKEND_URL=http://127.0.0.1:8787\n' >> "$SCRIPT_DIR/.env"
+    echo "BACKEND_URL mancante → aggiunta default http://127.0.0.1:8787"
+fi
 
 # ── 2. Setup standard (fix CRLF, venv, pip, npm install + build) ──────────────
 "$SCRIPT_DIR/setup.sh"

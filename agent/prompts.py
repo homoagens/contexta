@@ -8,9 +8,13 @@ from __future__ import annotations
 import json
 from typing import Dict, Optional
 
-# Prepend to every user message to engage qwen3 non-thinking mode.
-# The tokenizer maps this to <|no_think|> regardless of backend middleware.
-_NO_THINK = "/no_think\n"
+# Model-agnostic instruction to keep latency low on "thinking" models without
+# vendor-specific tokens (e.g. /no_think) that leak as literal text into models
+# that don't understand them. Plain English works on every backend.
+_FAST_HINT = (
+    "Be fast: reply directly with the final answer only. Do not deliberate, "
+    "explain your reasoning, or output any internal thinking — speed matters."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +43,7 @@ def _system_translate(source: str, target: str) -> str:
     tgt = lang_name(target)
     return (
         f"You are a {src}-to-{tgt} translator. Output ONLY a raw JSON object — no markdown, no prose.\n"
+        f"{_FAST_HINT}\n"
         f"The user sends a JSON object with a 'span' field (the word or phrase to translate) "
         f"and a 'sentence' field (the surrounding sentence for context).\n"
         f"Required keys: best_result, span_role, span_sense, alt, sentence.\n"
@@ -63,6 +68,7 @@ def _system_synonym(language: str) -> str:
         f"The user sends a JSON with a 'span' field (the selected word/phrase) "
         f"and a 'sentence' field (the context sentence).\n"
         f"Respond with ONLY a raw JSON object — no markdown, no prose.\n"
+        f"{_FAST_HINT}\n"
         f"Keys: best_result, span_role (VERB|NOUN|ADJ|ADV|PROPER_NOUN|LABEL|UNKNOWN), "
         f"span_sense, alt (array max 3), sentence.\n"
         f"Rules:\n"
@@ -80,13 +86,13 @@ def _system_minimal(source: str, target: str) -> str:
     if source == target:
         lang = lang_name(source)
         return (
-            f"Find the best {lang} synonym for the given word in context. "
+            f"Find the best {lang} synonym for the given word in context. {_FAST_HINT} "
             f'Output ONLY this JSON (no markdown):\n'
             f'{{"best_result":"...","span_role":"...","span_sense":"...","alt":["..."],"sentence":"..."}}'
         )
     tgt = lang_name(target)
     return (
-        f"Translate the span to {tgt}. "
+        f"Translate the span to {tgt}. {_FAST_HINT} "
         f'Output ONLY this JSON (no markdown):\n'
         f'{{"best_result":"...","span_role":"...","span_sense":"...","alt":["..."],"sentence":"..."}}'
     )
@@ -158,7 +164,8 @@ def build_chat_context_messages(
             f"- Complete ONLY the task above — do not explain the word in general.\n"
             f"- Maximum 4 sentences total.\n"
             f"- Write plain text: no asterisks, no bold, no markdown, no headers.\n"
-            f"- Start directly with the answer — no 'Okay', 'Certo', 'Ecco' or similar."
+            f"- Start directly with the answer — no 'Okay', 'Certo', 'Ecco' or similar.\n"
+            f"- {_FAST_HINT}"
         )
     else:
         system = (
@@ -168,7 +175,8 @@ def build_chat_context_messages(
             f"Instructions:\n"
             f"- Answer the user's question freely and directly.\n"
             f"- Write plain text: no asterisks, no bold, no markdown, no headers.\n"
-            f"- Start directly with the answer — no 'Okay', 'Certo', 'Ecco' or similar."
+            f"- Start directly with the answer — no 'Okay', 'Certo', 'Ecco' or similar.\n"
+            f"- {_FAST_HINT}"
         )
 
     return [
@@ -191,7 +199,7 @@ def build_translate_messages(
         system = _system_synonym(source_lang)
     else:
         system = _system_translate(source_lang, target_lang)
-    user_msg = _NO_THINK + json.dumps(_build_user_obj(payload), ensure_ascii=False)
+    user_msg = json.dumps(_build_user_obj(payload), ensure_ascii=False)
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user_msg},
@@ -210,7 +218,7 @@ def build_translate_messages_minimal(
     }
     return [
         {"role": "system", "content": _system_minimal(source_lang, target_lang)},
-        {"role": "user", "content": _NO_THINK + json.dumps(user_obj, ensure_ascii=False)},
+        {"role": "user", "content": json.dumps(user_obj, ensure_ascii=False)},
     ]
 
 
@@ -335,6 +343,7 @@ def build_batch_translate_messages(
         f"(word/phrase) and a 'sentence' (its context).\n"
         f"For EVERY item output one JSON object with keys: "
         f"span, best_result, span_role, span_sense.\n"
+        f"{_FAST_HINT}\n"
         f"Rules:\n"
         f"- span = echo the input span EXACTLY (so results can be matched).\n"
         f"- best_result = the {task} of the span value (1-3 words, never a sentence).\n"
@@ -407,5 +416,5 @@ def build_translate_messages_with_hints(
 
     return [
         {"role": "system", "content": system},
-        {"role": "user", "content": _NO_THINK + json.dumps(user_obj, ensure_ascii=False)},
+        {"role": "user", "content": json.dumps(user_obj, ensure_ascii=False)},
     ]

@@ -10,9 +10,10 @@ interface Props {
   settings: SettingsType
   onChange: (s: SettingsType) => void
   onLogout?: () => void
+  onQuit?: () => void
 }
 
-export default function Settings({ settings, onChange, onLogout }: Props) {
+export default function Settings({ settings, onChange, onLogout, onQuit }: Props) {
   const [local, setLocal] = useState<SettingsType>(settings)
   const [saved, setSaved] = useState(false)
 
@@ -41,6 +42,15 @@ export default function Settings({ settings, onChange, onLogout }: Props) {
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--danger)', padding: 0 }}
             >
               Logout
+            </button>
+          )}
+          {onQuit && (
+            <button
+              onClick={onQuit}
+              title="Arresta il servizio Contexta"
+              style={{ background: 'none', border: '1px solid var(--danger)', borderRadius: 6, cursor: 'pointer', fontSize: 13, color: 'var(--danger)', padding: '5px 12px' }}
+            >
+              ⏻ Quit
             </button>
           )}
           <button

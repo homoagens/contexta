@@ -4,9 +4,14 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+except ImportError as exc:  # pragma: no cover
+    raise RuntimeError(
+        "python-dotenv non è installato: il file .env verrebbe ignorato in "
+        "silenzio e la configurazione (BACKEND_URL, porta, chiavi...) cadrebbe "
+        "sui default. Installa le dipendenze:  pip install -r requirements.txt"
+    ) from exc
+
+load_dotenv()
 
 # -- LLM backend URL (e.g. http://myhost:8787) --------------------------------
 BACKEND_URL: str = os.environ.get("BACKEND_URL", "http://127.0.0.1:8787").rstrip("/")
