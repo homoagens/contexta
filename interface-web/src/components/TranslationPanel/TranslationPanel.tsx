@@ -97,12 +97,14 @@ export default function TranslationPanel({ selectedText, result, loading, stream
         <div className="sheet-body">
           {loading && (
             <div style={{ padding: '16px 0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: (streamingText || streamingThink) ? 10 : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: streamingThink ? 10 : 0 }}>
                 <div className="spinner" style={{ width: 16, height: 16, flexShrink: 0 }} />
                 <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                  {streamingThink && !streamingText ? 'Thinking…' : 'Translating…'}
+                  {streamingThink ? 'Thinking…' : 'Translating…'}
                 </span>
               </div>
+              {/* Show the model's reasoning live, but never the raw JSON answer
+                  stream — it builds up as ugly half-parsed text. */}
               {streamingThink && (
                 <div style={{
                   fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic',
@@ -111,16 +113,6 @@ export default function TranslationPanel({ selectedText, result, loading, stream
                   maxHeight: 160, overflowY: 'auto', opacity: 0.85,
                 }}>
                   {streamingThink}
-                </div>
-              )}
-              {streamingText && (
-                <div style={{
-                  fontFamily: 'monospace', fontSize: 11, color: 'var(--text-muted)',
-                  whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.45,
-                  background: 'var(--surface)', borderRadius: 6, padding: '8px 10px',
-                  maxHeight: 110, overflow: 'hidden', opacity: 0.75,
-                }}>
-                  {streamingText}
                 </div>
               )}
             </div>

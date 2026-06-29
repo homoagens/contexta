@@ -7,13 +7,14 @@ import { t } from '../../i18n'
 interface Props {
   settings: Settings
   onOpenServerBook: (book: ServerBook) => void
+  onQuit?: () => void
 }
 
 function formatMB(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1)
 }
 
-export default function Library({ settings, onOpenServerBook }: Props) {
+export default function Library({ settings, onOpenServerBook, onQuit }: Props) {
   const [books, setBooks]       = useState<ServerBook[]>([])
   const [loading, setLoading]   = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -109,6 +110,20 @@ export default function Library({ settings, onOpenServerBook }: Props) {
         >
           {uploading ? t('lib.uploading', lang) : t('lib.add_epub', lang)}
         </button>
+        {onQuit && (
+          <button
+            className="navbar-icon-btn"
+            onClick={onQuit}
+            title="Arresta il servizio Contexta"
+            aria-label="Quit"
+            style={{ color: 'var(--danger)' }}
+          >
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+              <line x1="12" y1="2" x2="12" y2="12" />
+            </svg>
+          </button>
+        )}
         <input ref={fileRef} type="file" accept=".epub" style={{ display: 'none' }} onChange={handleFileSelect} />
       </div>
 

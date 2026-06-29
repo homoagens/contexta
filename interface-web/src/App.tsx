@@ -162,6 +162,7 @@ export default function App() {
           <Library
             settings={settings}
             onOpenServerBook={openServerBook}
+            onQuit={handleQuit}
           />
         )}
         {tab === 'favorites' && <Favorites lang={lang} />}
