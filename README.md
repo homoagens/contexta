@@ -77,8 +77,8 @@ contexta/
 │   └── tools/client.py        # OpenAI-compatible LLM client (+ streaming)
 ├── interface-web/             # React + TypeScript + Vite frontend
 │   └── dist/                  # production build (npm run build)
-├── install.sh / configure.sh / start.sh   (+ .bat twins)
-├── manage.sh                  # user/session admin console
+├── install.sh / configure.sh / start.sh   (+ .bat twins)   # the pipeline
+├── scripts/                   # ops: manage.sh (admin), install-service.sh (systemd)
 ├── requirements.txt
 └── .env.example
 ```
@@ -108,6 +108,14 @@ contexta/
 
 ## 🚀 Deployment
 
+On the server, run the pipeline (`./install.sh && ./configure.sh`), then register the systemd service with one command:
+
+```bash
+sudo ./scripts/install-service.sh        # creates + enables + starts contexta.service
+```
+
+To redeploy just the frontend afterwards:
+
 ```bash
 cd interface-web && npm run build
 rsync -av dist/ user@server:/opt/contexta/interface-web/dist/
@@ -115,7 +123,7 @@ ssh user@server "systemctl restart contexta"
 ```
 
 <details>
-<summary>Example systemd unit</summary>
+<summary>Equivalent systemd unit (if you prefer to write it by hand)</summary>
 
 ```ini
 # /etc/systemd/system/contexta.service
@@ -140,14 +148,14 @@ WantedBy=multi-user.target
 
 ## 👤 User management
 
-`manage.sh` runs **on the server** and talks directly to the SQLite database:
+`scripts/manage.sh` runs **on the server** and talks directly to the SQLite database:
 
 ```bash
-bash manage.sh                              # interactive menu
-bash manage.sh users create <username>
-bash manage.sh users disable <username>     # block without deleting
-bash manage.sh users reset-password <username>
-bash manage.sh sessions purge               # drop expired sessions
+bash scripts/manage.sh                              # interactive menu
+bash scripts/manage.sh users create <username>
+bash scripts/manage.sh users disable <username>     # block without deleting
+bash scripts/manage.sh users reset-password <username>
+bash scripts/manage.sh sessions purge               # drop expired sessions
 ```
 
 If `ADMIN_KEY` is set, the same actions are available over HTTP via the `X-Admin-Key` header.

@@ -4,10 +4,11 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+# Repo root is the parent of scripts/ — that's where .venv and agent/ live.
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 
-PYTHON="${PYTHON:-$SCRIPT_DIR/.venv/bin/python3}"
+PYTHON="${PYTHON:-$ROOT_DIR/.venv/bin/python3}"
 MGR="$PYTHON -m agent.manage"
 
 # Colors

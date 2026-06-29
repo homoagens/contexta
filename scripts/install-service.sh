@@ -1,12 +1,13 @@
 #!/bin/bash
 # Installa contexta come servizio systemd.
-# Uso: sudo ./install-service.sh
+# Uso: sudo ./scripts/install-service.sh
 # Per disinstallare: sudo systemctl disable --now contexta && sudo rm /etc/systemd/system/contexta.service
 set -e
 
 SERVICE=contexta
 PORT=8001
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Repo root is the parent of scripts/ — that's where .env and .venv live.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_USER="${SUDO_USER:-$(whoami)}"
 
 cat > /etc/systemd/system/${SERVICE}.service << EOF
